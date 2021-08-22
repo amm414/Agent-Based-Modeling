@@ -144,9 +144,9 @@ class ForestFireSim:
         self.is_print = is_print
 
         # Currently Hard-Coded Set Parameters
-        self.length = 50
+        self.length = 20
         self.foliage_growth_rate = {0.26: .2, 0.51: .4, 0.76: .3, 2: 0.15}
-        self.fire_start_dist = {0.5: 0, 0.8: 1, 0.95: 2, 1: 3}
+        self.fire_start_dist = {0.7: 0, 0.9: 1, 0.98: 2, 1: 3}
 
         # Controllable Hyper-Parameters
         self.fire_spread_chance = fire_spread
@@ -178,12 +178,14 @@ class ForestFireSim:
             self.display_board(caption="Before Fires")
 
         self.simulate_fires()
+        self.end_fires()
         self.simulate_foliage_growth()
 
         if self.history is not None:
             self.track_history()
         if self.is_print:
             self.display_board(caption=f'After Growth Iteration ({self.growth_iterations}) Fires')
+            print("\n" + "*" * int(self.length + self.length/2) + "\n")
 
     def track_history(self):
         """
@@ -203,8 +205,8 @@ class ForestFireSim:
         """
         fire_locations = []
         for i in range(get_number_fires(self.fire_start_dist)):
-            x_coordinate = random.randint(0, self.length)
-            y_coordinate = random.randint(0, self.length)
+            x_coordinate = random.randint(0, self.length-1)
+            y_coordinate = random.randint(0, self.length-1)
             self.forest[x_coordinate][y_coordinate].set_fire(self.growth_iterations)
             fire_locations.append((x_coordinate, y_coordinate))
         return fire_locations
@@ -223,8 +225,9 @@ class ForestFireSim:
             neighbor_foliage_cells = get_neighbor_matrix_indices(current_fire_cell, self.length)
             for cell in neighbor_foliage_cells:
                 if random.uniform(0, 1) <= self.fire_spread_chance:
-                    self.forest[cell[0]][cell[1]].set_fire(self.growth_iterations)
-                    fire_locations.append(cell)
+                    cell_location = self.forest[cell[0]][cell[1]].set_fire(self.growth_iterations)
+                    if cell_location is not None:
+                        fire_locations.append(cell_location)
 
     def simulate_fires(self):
         """
@@ -242,6 +245,15 @@ class ForestFireSim:
         else:
             if self.is_print:
                 print("\nNo Fires Started\n")
+
+    def end_fires(self):
+        """
+        After the fires have finished spreading, we need to convert the cells from Fire to Dirt.
+        :return:
+        """
+        for row in self.forest:
+            for cell in row:
+                cell.set_agent_type("Dirt", self.growth_iterations)
 
     def get_foliage_counts(self, neighbors):
         number_foliage_cells = 0
@@ -262,11 +274,11 @@ class ForestFireSim:
         self.growth_iterations += 1
         for row in self.forest:
             for cell in row:
-                if self.forest[cell[0]][cell[1]].agent_type == "Dirt":
-                    neighbors = get_neighbor_matrix_indices(cell, self.length)
+                if cell.agent_type == "Dirt":
+                    neighbors = get_neighbor_matrix_indices(cell.location, self.length)
                     number_foliage_cells = self.get_foliage_counts(neighbors)
                     if is_growth(number_foliage_cells, len(neighbors), self.foliage_growth_rate):
-                        self.forest[cell[0]][cell[1]].set_type("Foliage", self.growth_iterations)
+                        cell.set_agent_type("Foliage", self.growth_iterations)
 
     def display_board(self, caption=None):
         """
@@ -276,8 +288,14 @@ class ForestFireSim:
         string_board = ""
         for row in self.forest:
             for elem in row:
-                string_board += str(elem.agent_type)[0]
+                if elem.agent_type == 'Foliage':
+                    string_board += "T"
+                elif elem.agent_type == "Fire":
+                    string_board += "F"
+                elif elem.agent_type == "Dirt":
+                    string_board += "."
             string_board += "\n"
         if caption is not None:
             print(str(caption) + "\n")
         print(string_board + "\n")
+        return string_board
