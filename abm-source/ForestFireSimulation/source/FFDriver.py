@@ -1,6 +1,6 @@
 from ForestFire import ForestFireSim
 
-fire_sim = ForestFireSim(fire_spread=0.5, is_print=True)
+fire_sim = ForestFireSim(fire_spread_chance=0.5, is_print=True)
 
-while fire_sim.growth_iterations < 100:
+while fire_sim.growth_iterations < 20:
     fire_sim.simulate_iteration()
