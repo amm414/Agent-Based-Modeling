@@ -92,7 +92,7 @@ def get_row_indices(center: int, length: int, neighbor_range: int):
 
 
 # calculate the matrix of indices for neighbors
-def get_neighbor_matrix_indices(cell, max_length, neighbor_range=1):
+def get_neighbor_matrix_indices(cell: tuple, max_length: int, neighbor_range=1):
     """
     Get the matrix of neighboring cells surrounding the cell given as the parameter. The goal is to
     return the 2D list of x,y locations representing all the neighbors within the given
@@ -122,7 +122,7 @@ def get_number_fires(distribution: dict):
     return 0
 
 
-def is_growth(number_foliage_cells, number_of_neighboring_cells, distribution):
+def is_growth(number_foliage_cells: int, number_of_neighboring_cells: int, distribution: dict):
     """
     Returns whether growth occurs in this 'dirt' cell (already confirmed to be dirt earlier).
 
@@ -289,7 +289,6 @@ class ForestCell:
     def set_agent_type(self, new_type: str, type_iteration: str, num_iterations: int):
         """
         Sets the Forest Agent to the specified agent_type. Should add some error checking.
-
         :param new_type: str; the new agent type the ForestCell becomes
         :param type_iteration: str; the type of iteration (either 'Fire' or 'Growth')
         :param num_iterations: int; the number of the iterations.
@@ -393,7 +392,6 @@ class ForestFireSim:
     def __init__(self, length=20, fire_spread_chance=0.50, foliage_growth_rate=None, fire_start_dist=None,
                  agent_history=False, is_print=False):
         """
-
         :param length: int; Hyper-Parameter; the length of the discrete space for the Forest.
         :param fire_spread_chance: float; Hyper-Parameter; the percent that fire will spread to neighboring
             'Foliage' Forest Cell
