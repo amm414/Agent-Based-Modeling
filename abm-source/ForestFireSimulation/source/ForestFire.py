@@ -184,7 +184,7 @@ class ForestCellHistory:
                                                                self.agent_states[-1]['iteration_number'])
                 elif self.agent_states[-1]['agent_type'] == 'Dirt':
                     self.metadata['iterations_of_dirt'] += (iteration_number -
-                                                               self.agent_states[-1]['iteration_number'])
+                                                            self.agent_states[-1]['iteration_number'])
             if new_agent_type == 'Fire':
                 self.metadata['number_of_fires'] += 1
             self.agent_states.append(new_entry)
@@ -281,17 +281,18 @@ class ForestCell:
     location: tuple
     history: ForestCellHistory
 
-    def __init__(self, agent_type, location, history=False):
+    def __init__(self, agent_type: str, location: tuple, history=False):
         self.agent_type = agent_type
         self.location = location
         self.history = ForestCellHistory(self.location, self.agent_type, agent_history=history)
 
-    def set_agent_type(self, new_type, type_iteration, num_iterations):
+    def set_agent_type(self, new_type: str, type_iteration: str, num_iterations: int):
         """
         Sets the Forest Agent to the specified agent_type. Should add some error checking.
 
-        :param new_type: str; the name of the new agent to set the Cell to.
-        :param growth_iteration: int; the number of growth iterations that have occurred.
+        :param new_type: str; the new agent type the ForestCell becomes
+        :param type_iteration: str; the type of iteration (either 'Fire' or 'Growth')
+        :param num_iterations: int; the number of the iterations.
         :return: None
         """
         if not new_type == self.agent_type:
@@ -485,7 +486,7 @@ class ForestFireSim:
                 fire_locations.append((x_coordinate, y_coordinate))
         return fire_locations
 
-    def burn_off_fires(self, current_fire_locations, fire_counter=1):
+    def burn_off_fires(self, current_fire_locations: list, fire_counter=1):
         """
         Recursive Function. Will return to the simulate_fires() after no more fires to spread. The function
         takes the locations of fires and keeps spreading the fires until there are no more. Each function call
@@ -540,7 +541,7 @@ class ForestFireSim:
                 print("\nNo Fires Started\n")
         self.burnt_to_dirt()
 
-    def get_foliage_counts(self, neighbors):
+    def get_foliage_counts(self, neighbors: list):
         """
         Counts the number of neighboring cells that have Foliage.
         :param neighbors: list; list of tuples (x, y coordinate pairs) of the neighboring cells' locations.
