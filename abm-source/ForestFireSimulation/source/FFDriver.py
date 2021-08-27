@@ -1,4 +1,7 @@
 from ForestFire import ForestFireSim
+import time
+import json
+
 
 def print_board(board):
     string_board = ""
@@ -17,10 +20,12 @@ def print_board(board):
     print(string_board)
 
 
-fire_sim = ForestFireSim(fire_spread_chance=0.5, is_print=False)
+start_time = time.time()
+fire_sim = ForestFireSim(length=50, fire_spread_chance=1, is_print=False)
+fire_sim.simulate_for_n_iterations(100)
+end_time = time.time()
 
-while fire_sim.growth_iterations < 20:
-    fire_sim.simulate_iteration()
+print("Took: " + str(end_time - start_time) + " Time!\n\n\n\n\n\n")
 
 print("\n\n\n\n\nTry to Print out my Own Results from Dict. Response:\n")
 
@@ -36,7 +41,12 @@ print("\n\nStart of Printing Forest States:\n")
 print("*" * int(ff_sim_history['metadata']['hyper-parameters']['length'] +
                 ff_sim_history['metadata']['hyper-parameters']['length'] / 2))
 for entry in ff_sim_history['forest']:
-    input("Hit enter to view the next iteration...")
+    input_str = input("Hit enter to view the next iteration...")
+    if input_str == "q":
+        break
     print(entry["iteration_type"] + " Iteration #" + str(entry["iteration_number"]))
     print_board(entry['state'])
     print("\n\n")
+
+with open("C:/GitHub/Agent-Based-Modeling/abm-source/ForestFireSimulation/source/data/testRun.json", 'w') as outfile:
+    json.dump(ff_sim_history, outfile)

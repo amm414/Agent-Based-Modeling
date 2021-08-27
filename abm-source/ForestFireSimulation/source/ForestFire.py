@@ -122,22 +122,6 @@ def get_number_fires(distribution: dict):
     return 0
 
 
-def is_growth(number_foliage_cells: int, number_of_neighboring_cells: int, distribution: dict):
-    """
-    Returns whether growth occurs in this 'dirt' cell (already confirmed to be dirt earlier).
-
-    :param number_foliage_cells: number of neighboring cells that are foliage
-    :param number_of_neighboring_cells: total number of neighboring cells
-    :param distribution: the given distribution related to the percent of neighboring cells that are
-            foliage cells. Dictates how likely a foliage cell will grow here.
-    :return: True (growth of foliage occurs) and False (remains dirt)
-    """
-    foliage_ratio = number_foliage_cells / number_of_neighboring_cells
-    for key in sorted(distribution.keys()):
-        if foliage_ratio <= key:
-            return True if random.uniform(0, 1) <= distribution[key] else False
-
-
 class ForestCellHistory:
     """
     The Class object collecting the history and data of the individual ForestCell
@@ -212,8 +196,11 @@ class ForestHistory:
     """
     metadata: dict
     forest_states: list
+    number_of_fire_iterations: list
+    number_burnt_cells: list
+    number_foliage_cells: list
 
-    def __init__(self, length: int, agent_history: bool, foliage_growth_rate: dict, fire_start_dist: dict,
+    def __init__(self, length: int, agent_history: bool, foliage_growth_rate: float, fire_start_dist: dict,
                  fire_spread_chance: float):
         """
         Takes the parameters for the ForestFireSim and saves as 'metadata' within the history and collection
@@ -233,8 +220,17 @@ class ForestHistory:
                              "foliage_growth_rate": foliage_growth_rate,
                              "fire_start_dist": fire_start_dist,
                              "fire_spread_chance": fire_spread_chance,
+                         },
+                         "key": {
+                             "Foliage": "T",
+                             "Fire": "F",
+                             "Burnt": "B",
+                             "Dirt": "D",
                          }}
         self.forest_states = []
+        self.number_burnt_cells = []
+        self.number_of_fire_iterations = []
+        self.number_foliage_cells = []
 
     def update_history(self, iter_type: str, iter_num: int, forest_representation: list):
         """
@@ -247,6 +243,9 @@ class ForestHistory:
         if iter_type.lower() == 'fire' and iter_num == 0:
             self.metadata['number_of_fires'] += 1
         elif iter_type.lower() == 'growth':
+            # check if fire statistics update needed first
+            if len(self.forest_states) > 0 and self.forest_states[-1]['iteration_type'].lower() == 'fire':
+                self.update_new_fire_statistic()
             self.metadata['number_of_growth_iterations'] = iter_num
         new_entry = {
             "iteration_type": str(iter_type),
@@ -254,6 +253,39 @@ class ForestHistory:
             "state": forest_representation
         }
         self.forest_states.append(new_entry)
+        if iter_type.lower() == 'growth':
+            # after saving the Forest World to history, use it to update the growth statistics
+            self.update_growth_statistics()
+
+    def count_elem(self, elem: str):
+        """
+        Counts the number of occurrences of the given elem (key of agent_type)
+        :param elem: str; the key of the agent type.
+        :return: number of times that agent type occurred
+        """
+        return [x for row in self.forest_states[-1]['state'] for x in row].count(elem)
+
+    def update_new_fire_statistic(self):
+        """
+        Updates the statistics being gathered throughout the simulation. Uses the last forest_state saved.
+        Saves statistics on number of cells caught fire (now they are 'burnt') and number of fire
+        iterations it took to spread + end the fire.
+
+        This may be expanded over time.
+        :return: None
+        """
+        self.number_of_fire_iterations.append(self.forest_states[-1]['iteration_number'])
+        self.number_burnt_cells.append(self.count_elem('B'))
+
+    def update_growth_statistics(self):
+        """
+        Updates the statistics being gathered throughout the simulation. Uses the last forest_state saved.
+        Saves statistics on number of foliage cells there are.
+
+        This may be expanded over time.
+        :return: None
+        """
+        self.number_foliage_cells.append(self.count_elem('T'))
 
     def get_dict_forest_history(self):
         """
@@ -262,6 +294,9 @@ class ForestHistory:
         """
         history = {
             'metadata': self.metadata,
+            'number_of_foliage_cells': self.number_foliage_cells,
+            'number_of_fire_iterations': self.number_of_fire_iterations,
+            'number_burnt_cells': self.number_burnt_cells,
             'forest': self.forest_states
         }
         return history
@@ -382,21 +417,21 @@ class ForestFireSim:
     growth_iterations: int
     length: int
     fire_spread_chance: float
-    foliage_growth_rate: dict
+    foliage_growth_rate: float
     fire_start_dist: dict
     forest: list
     is_print: bool
     history: ForestHistory
     agent_history: bool
 
-    def __init__(self, length=20, fire_spread_chance=0.50, foliage_growth_rate=None, fire_start_dist=None,
+    def __init__(self, length=20, fire_spread_chance=0.50, foliage_growth_rate=0.05, fire_start_dist=None,
                  agent_history=False, is_print=False):
         """
         :param length: int; Hyper-Parameter; the length of the discrete space for the Forest.
         :param fire_spread_chance: float; Hyper-Parameter; the percent that fire will spread to neighboring
             'Foliage' Forest Cell
-        :param foliage_growth_rate: dict; Hyper-Parameter; determines the likelihood that the Forest Cell with
-            'Dirt' will spawn 'Foliage' depending on the percent of neighboring 'Foliage' Forest Cells.
+        :param foliage_growth_rate: float; Hyper-Parameter; determines the likelihood that the Forest Cell with
+            'Dirt' will spawn 'Foliage'.
         :param fire_start_dist: dict; Hyper-Parameter; determines the CDF for how many fires are started each
             iteration.
         :param agent_history: bool; whether to store the individual Forest Cell agent's data overtime.
@@ -409,15 +444,15 @@ class ForestFireSim:
             raise ValueError("The Forest length must an integer and be greater than 10.")
         self.length = length
         # get fire_spread rate
-        if not (0 < float(fire_spread_chance) < 1):
+        if not (0 < float(fire_spread_chance) <= 1):
             raise ValueError("The fire_spread must be a probability. "
                              "Therefore must be between 1 and 0, but not 0 nor 1")
         self.fire_spread_chance = fire_spread_chance
         # get the foliage_growth_Rate
-        if foliage_growth_rate is None:
-            self.foliage_growth_rate = {0.01: 0.02, 0.26: .1, 0.51: .15, 0.76: .1, 1: 0.05}
+        if 0.01 < float(foliage_growth_rate) < 0.21:
+            self.foliage_growth_rate = float(foliage_growth_rate)
         else:
-            self.foliage_growth_rate = foliage_growth_rate
+            self.foliage_growth_rate = 0.05  # Default value
         # get the fire_start_distribution for # of fires started each iteration
         if fire_start_dist is None:
             self.fire_start_dist = {0.65: 0, 0.85: 1, 0.97: 2, 1: 3}
@@ -455,6 +490,15 @@ class ForestFireSim:
                     new_row.append(ForestCell("Dirt", (i, j), self.agent_history))
             self.forest.append(new_row)
 
+    def simulate_for_n_iterations(self, n: int):
+        """
+        Simulates the forest for n GROWTH iterations.
+        :param n: int; represents the number of GROWTH iterations to simulate
+        :return: None
+        """
+        for i in range(int(n)):
+            self.simulate_iteration()
+
     def simulate_iteration(self):
         """
         This simulates 1 iteration. An iteration is basically a unit of time. In this time, fires
@@ -465,6 +509,7 @@ class ForestFireSim:
         self.simulate_fires()
         self.simulate_foliage_growth()
         self.history.update_history('growth', self.growth_iterations, self.str_list_repr_forest())
+        self.burnt_to_dirt()
         if self.is_print:
             self.display_board(caption=f'After Growth Iteration Number: {self.growth_iterations}')
             print("\n" + "*" * int(self.length + self.length/2) + "\n")
@@ -533,7 +578,6 @@ class ForestFireSim:
             self.burn_off_fires(fire_locations, fire_counter=1)
             if self.is_print:
                 self.display_board(caption="After Fires")
-            self.burnt_to_dirt()
         else:
             if self.is_print:
                 print("\nNo Fires Started\n")
@@ -562,9 +606,7 @@ class ForestFireSim:
         for row in self.forest:
             for cell in row:
                 if cell.agent_type == "Dirt" or cell.agent_type == 'Burnt':
-                    neighbors = get_neighbor_matrix_indices(cell.location, self.length)
-                    number_foliage_cells = self.get_foliage_counts(neighbors)
-                    if is_growth(number_foliage_cells, len(neighbors), self.foliage_growth_rate):
+                    if random.uniform(0, 1) <= self.foliage_growth_rate:
                         cell.set_to_foliage(self.growth_iterations)
 
     def display_board(self, caption=None):
@@ -594,12 +636,12 @@ class ForestFireSim:
         This is use to store the history of the Forest.
         This will be used to analyze and for frontend consumption.
         :return: list; char_forest ... 2D List containing the strings that are allowed
-            ('Foliage', 'Fire', 'Dirt', 'Burnt')
+            ('T' for Foliage/Tree, 'F' for Fire, 'D' for Dirt, 'B' for Burnt)
         """
         char_forest = []
         for row in self.forest:
             new_row = []
             for elem in row:
-                new_row.append(elem.agent_type)
+                new_row.append(self.history.metadata['key'][elem.agent_type])
             char_forest.append(new_row)
         return char_forest
